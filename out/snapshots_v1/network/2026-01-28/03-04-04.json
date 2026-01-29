@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "snapshot": {
+    "timestamp_utc": "2026-01-28T03:04:04.993772+00:00",
+    "interval_seconds": 60
+  },
+  "host": {
+    "hostname": "DESKTOP-P5VGVIU",
+    "ipv4": "127.0.0.1",
+    "os": "Windows-11-10.0.26100-SP0"
+  },
+  "network": {
+    "listening": {
+      "total_ports": 38,
+      "loopback_ports": 19,
+      "exposed_ports": 19,
+      "sensitive_ports": [
+        135,
+        445
+      ]
+    },
+    "connections": {
+      "established_external": 19,
+      "unique_external_ips": 2
+    }
+  }
+}

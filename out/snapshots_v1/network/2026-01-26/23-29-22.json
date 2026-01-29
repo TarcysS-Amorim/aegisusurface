@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-01-26T23:29:22.001868+00:00",
+  "listening_ports_total": 39,
+  "loopback_listening_ports": 19,
+  "exposed_listening_ports": 20,
+  "sensitive_ports_open": [
+    139,
+    445,
+    135
+  ],
+  "established_external_conns": 23,
+  "unique_external_ips": 7
+}
