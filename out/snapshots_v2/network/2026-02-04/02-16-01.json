@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "snapshot": {
+    "timestamp_utc": "2026-02-04T02:16:01.126897+00:00",
+    "interval_seconds": 60
+  },
+  "host": {
+    "hostname": "cachy",
+    "ipv4": "192.168.0.204",
+    "os": "Linux-6.12.68-2-cachyos-lts-x86_64-with-glibc2.42"
+  },
+  "network": {
+    "listening": {
+      "total_ports": 0,
+      "loopback_ports": 0,
+      "exposed_ports": 0,
+      "sensitive_ports": []
+    },
+    "connections": {
+      "established_external": 0,
+      "unique_external_ips": 0
+    }
+  }
+}

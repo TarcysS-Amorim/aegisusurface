@@ -1,103 +1,129 @@
 # features/build_features_v1.py
+#
+# Feature builder v1 for AegisSurface
+#
+# Responsibility:
+# - Load schema v1 snapshots
+# - Build time-ordered, tabular features
+# - Compute deltas between consecutive snapshots
+#
+# No ML. No scoring. No decisions.
 
 import json
 from pathlib import Path
 from datetime import datetime
+
 import pandas as pd
 
 
-SNAPSHOT_ROOT = Path("out/snapshots/network")
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
 
+SNAPSHOT_ROOT = Path("out/snapshots_v2/network")
+OUT_DIR = Path("out/features")
+OUT_CSV = OUT_DIR / "network_features_v2.csv"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def load_snapshots() -> list[dict]:
     """
-    Carrega todos os snapshots JSON em ordem temporal.
+    Load all snapshot JSON files recursively.
     """
     snapshots = []
 
-    for day_dir in sorted(SNAPSHOT_ROOT.glob("*")):
-        if not day_dir.is_dir():
-            continue
-
-        for file in sorted(day_dir.glob("*.json")):
-            with open(file, "r", encoding="utf-8") as f:
+    for path in sorted(SNAPSHOT_ROOT.rglob("*.json")):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 snapshots.append(data)
+        except Exception as e:
+            print(f"[!] failed to load {path}: {e}")
 
     return snapshots
 
 
-def extract_row(snapshot: dict) -> dict:
+def extract_features(snapshot: dict) -> dict:
     """
-    Extrai uma linha numérica a partir de um snapshot v1.0
+    Extract numeric features from a single snapshot (schema v1).
     """
     ts = snapshot["snapshot"]["timestamp_utc"]
 
     net = snapshot["network"]
+
     listening = net["listening"]
     connections = net["connections"]
 
     return {
-        "timestamp": datetime.fromisoformat(ts),
-
-        # Superfície
-        "listening_total": listening["total_ports"],
+        "timestamp": ts,
+        "listening_ports_total": listening["total_ports"],
         "loopback_ports": listening["loopback_ports"],
         "exposed_ports": listening["exposed_ports"],
         "sensitive_ports_count": len(listening["sensitive_ports"]),
-
-        # Comportamento
         "established_external": connections["established_external"],
         "unique_external_ips": connections["unique_external_ips"],
     }
 
 
-def build_dataframe(snapshots: list[dict]) -> pd.DataFrame:
-    """
-    Constrói DataFrame temporal a partir dos snapshots
-    """
-    rows = [extract_row(s) for s in snapshots]
-    df = pd.DataFrame(rows)
-
-    df = df.sort_values("timestamp").reset_index(drop=True)
-
-    return df
-
-
-def add_deltas(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adiciona features de variação temporal (delta)
-    """
-    delta_cols = [
-        "exposed_ports",
-        "established_external",
-        "unique_external_ips",
-        "sensitive_ports_count",
-    ]
-
-    for col in delta_cols:
-        df[f"delta_{col}"] = df[col].diff().fillna(0)
-
-    return df
-
+# ---------------------------------------------------------------------------
+# Main builder
+# ---------------------------------------------------------------------------
 
 def main():
+    print("[*] Loading snapshots...")
     snapshots = load_snapshots()
+
     if not snapshots:
-        raise RuntimeError("Nenhum snapshot encontrado.")
+        raise RuntimeError("No snapshots found.")
 
-    df = build_dataframe(snapshots)
-    df = add_deltas(df)
+    print(f"[+] Loaded {len(snapshots)} snapshots")
 
-    out_dir = Path("out/features")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for snap in snapshots:
+        try:
+            rows.append(extract_features(snap))
+        except Exception as e:
+            print(f"[!] failed to extract features: {e}")
 
-    out_path = out_dir / "network_features_v1.csv"
-    df.to_csv(out_path, index=False)
+    df = pd.DataFrame(rows)
 
-    print(f"[+] Feature table criada: {out_path}")
-    print(df.tail())
+    # Ensure temporal ordering
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = df.sort_values("timestamp").reset_index(drop=True)
 
+    # -----------------------------------------------------------------------
+    # Delta features (temporal change)
+    # -----------------------------------------------------------------------
+
+    numeric_cols = [
+        "listening_ports_total",
+        "loopback_ports",
+        "exposed_ports",
+        "sensitive_ports_count",
+        "established_external",
+        "unique_external_ips",
+    ]
+
+    for col in numeric_cols:
+        df[f"delta_{col}"] = df[col].diff().fillna(0)
+
+    # -----------------------------------------------------------------------
+    # Persist
+    # -----------------------------------------------------------------------
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUT_CSV, index=False)
+
+    print(f"[✓] Feature table written to: {OUT_CSV}")
+    print(f"[✓] Rows: {len(df)} | Columns: {len(df.columns)}")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
